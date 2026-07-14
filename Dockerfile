@@ -52,7 +52,7 @@ USER app
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:5000/api/health', timeout=4).status == 200 else 1)"
+    CMD python -c "import os,urllib.request,sys; port=os.environ.get('PORT','5000'); sys.exit(0 if urllib.request.urlopen(f'http://localhost:{port}/api/health', timeout=4).status == 200 else 1)"
 
 # migrate, then launch Gunicorn (see scripts/entrypoint.sh).
 CMD ["/app/scripts/entrypoint.sh"]
