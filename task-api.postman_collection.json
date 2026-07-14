@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Task Management API",
+    "description": "CRUD + health + validation requests for the Task Management API (Django REST Framework). Base URL is set via the {{base_url}} collection variable (default http://localhost:5000). All endpoints live under /api.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:5000" }
+  ],
+  "item": [
+    {
+      "name": "1. Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/health", "host": ["{{base_url}}"], "path": ["api", "health"] }
+      }
+    },
+    {
+      "name": "2. Create task",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Write the CircleCI config\"\n}" },
+        "url": { "raw": "{{base_url}}/api/tasks", "host": ["{{base_url}}"], "path": ["api", "tasks"] }
+      }
+    },
+    {
+      "name": "3. Create task (full payload)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Buy milk\",\n  \"description\": \"Semi-skimmed, two cartons\",\n  \"status\": \"in_progress\",\n  \"due_date\": \"2026-08-01\"\n}" },
+        "url": { "raw": "{{base_url}}/api/tasks", "host": ["{{base_url}}"], "path": ["api", "tasks"] }
+      }
+    },
+    {
+      "name": "4. List tasks",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/tasks", "host": ["{{base_url}}"], "path": ["api", "tasks"] }
+      }
+    },
+    {
+      "name": "5. Get task by id",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/tasks/1", "host": ["{{base_url}}"], "path": ["api", "tasks", "1"] }
+      }
+    },
+    {
+      "name": "6. Update task (PUT)",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"Write the CircleCI config\",\n  \"status\": \"done\"\n}" },
+        "url": { "raw": "{{base_url}}/api/tasks/1", "host": ["{{base_url}}"], "path": ["api", "tasks", "1"] }
+      }
+    },
+    {
+      "name": "7. Partial update (PATCH)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"status\": \"done\"\n}" },
+        "url": { "raw": "{{base_url}}/api/tasks/1", "host": ["{{base_url}}"], "path": ["api", "tasks", "1"] }
+      }
+    },
+    {
+      "name": "8. Delete task",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/tasks/1", "host": ["{{base_url}}"], "path": ["api", "tasks", "1"] }
+      }
+    },
+    {
+      "name": "9. Validation error (empty title)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": { "mode": "raw", "raw": "{\n  \"title\": \"\"\n}" },
+        "url": { "raw": "{{base_url}}/api/tasks", "host": ["{{base_url}}"], "path": ["api", "tasks"] }
+      }
+    },
+    {
+      "name": "10. Not found",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{base_url}}/api/tasks/99999", "host": ["{{base_url}}"], "path": ["api", "tasks", "99999"] }
+      }
+    }
+  ]
+}

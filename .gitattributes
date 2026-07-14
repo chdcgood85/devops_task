@@ -1,0 +1,6 @@
+# Keep LF line endings so shell scripts run correctly inside Linux containers.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

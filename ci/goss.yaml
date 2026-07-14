@@ -1,0 +1,56 @@
+# Container-structure tests for the Task Manager image.
+# Executed by dgoss (see ci/scripts/container-test.sh). These assert the
+# *shape* of the built artifact — no database required.
+
+file:
+  # The Django project is present at the expected location.
+  /app/backend/manage.py:
+    exists: true
+    filetype: file
+  /app/backend/config/settings.py:
+    exists: true
+    filetype: file
+  # The compiled React SPA was baked into the image by the frontend build stage.
+  /app/frontend_dist/index.html:
+    exists: true
+    filetype: file
+  # collectstatic ran at build time and produced the served asset tree.
+  /app/backend/staticfiles/index.html:
+    exists: true
+    filetype: file
+  # Start-up scripts are present and executable.
+  /app/scripts/wait-for-db.sh:
+    exists: true
+    filetype: file
+    mode: "0755"
+  /app/scripts/entrypoint.sh:
+    exists: true
+    filetype: file
+    mode: "0755"
+  # The Gunicorn console script was installed into the runtime image.
+  /usr/local/bin/gunicorn:
+    exists: true
+    filetype: file
+
+user:
+  # The non-root application user exists.
+  app:
+    exists: true
+
+command:
+  # Correct Python runtime.
+  python --version:
+    exit-status: 0
+    stdout:
+      - "/Python 3\\.12/"
+  # Django and DRF are importable in the runtime image.
+  python -c "import django, rest_framework":
+    exit-status: 0
+  # Gunicorn is runnable.
+  gunicorn --version:
+    exit-status: 0
+  # The container runs as the non-root 'app' user (not root).
+  id -un:
+    exit-status: 0
+    stdout:
+      - app

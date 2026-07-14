@@ -1,0 +1,164 @@
+version: 2.1
+
+executors:
+  python:
+    docker:
+      - image: cimg/python:3.12
+  node:
+    docker:
+      - image: cimg/node:20.18
+  vm:
+    machine:
+      image: ubuntu-2204:current
+
+jobs:
+  # Sanity-check the Django project: install deps and run system checks.
+  backend-build:
+    executor: python
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-pydeps-{{ checksum "backend/requirements.txt" }}
+      - run:
+          name: Install dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install -r backend/requirements.txt
+      - save_cache:
+          key: v2-pydeps-{{ checksum "backend/requirements.txt" }}
+          paths:
+            - venv
+      - run:
+          name: Django system checks
+          command: |
+            . venv/bin/activate
+            python backend/manage.py check
+            # Fail the build if a model change is missing its migration.
+            python backend/manage.py makemigrations --check --dry-run
+
+  # Install, build, and test the React frontend. Emits JUnit for CircleCI.
+  frontend-build:
+    executor: node
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-npm-{{ checksum "frontend/package-lock.json" }}
+      - run:
+          name: Build & test frontend
+          command: bash ci/scripts/frontend-build.sh
+      - save_cache:
+          key: v1-npm-{{ checksum "frontend/package-lock.json" }}
+          paths:
+            - frontend/node_modules
+      - store_test_results:
+          path: frontend/test-results
+      - store_artifacts:
+          path: frontend/test-results
+          destination: frontend-test-results
+
+  # Run the backend test suite against a real Postgres sidecar container.
+  backend-test:
+    docker:
+      - image: cimg/python:3.12
+      - image: postgres:16-alpine
+        environment:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tasks_test
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tasks_test
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v2-pydeps-{{ checksum "backend/requirements.txt" }}
+      - run:
+          name: Install dependencies
+          command: |
+            python -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install -r backend/requirements.txt
+      - run:
+          name: Run tests (Postgres sidecar, JUnit output)
+          command: |
+            . venv/bin/activate
+            bash ci/scripts/run-tests.sh
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
+          destination: test-results
+      - store_artifacts:
+          path: coverage.xml
+          destination: coverage.xml
+
+  # Build the Docker image (frontend + backend), structure-test it with goss,
+  # and hand the saved image off to the publish jobs via the workspace.
+  build-image:
+    executor: vm
+    steps:
+      - checkout
+      - run:
+          name: Skip build for docs-only changes
+          command: bash ci/scripts/should-build.sh
+      - run:
+          name: Build image
+          command: bash ci/scripts/build-image.sh
+      - run:
+          name: Container tests (goss)
+          command: bash ci/scripts/container-test.sh
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - image.tar.gz
+
+  publish-gcp:
+    executor: vm
+    steps:
+      - checkout
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Push image to Artifact Registry (OIDC)
+          command: bash ci/scripts/publish-gcp.sh
+
+  deploy:
+    docker:
+      - image: google/cloud-sdk:slim
+    steps:
+      - checkout
+      - run:
+          name: Deploy to Cloud Run (OIDC)
+          command: bash ci/scripts/deploy-cloudrun.sh
+
+workflows:
+  build-test-publish-deploy:
+    jobs:
+      - backend-build
+      - frontend-build
+      - backend-test:
+          requires:
+            - backend-build
+      - build-image:
+          requires:
+            - backend-test
+            - frontend-build
+      - publish-gcp:
+          context: gcp-oidc
+          requires:
+            - build-image
+          filters:
+            branches:
+              only: main
+      - deploy:
+          context: gcp-oidc
+          requires:
+            - publish-gcp
+          filters:
+            branches:
+              only: main

@@ -1,0 +1,39 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-tasks}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    depends_on:
+      db:
+        # Compose-level gate; wait-for-db.sh is the in-container safety net.
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-tasks}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-insecure-compose-key}
+      DJANGO_DEBUG: "0"
+    ports:
+      - "5000:5000"
+    # Wait for Postgres to accept connections, then migrate + launch Gunicorn.
+    command:
+      - ./scripts/wait-for-db.sh
+      - db
+      - "5432"
+      - /app/scripts/entrypoint.sh
+
+volumes:
+  pgdata:
